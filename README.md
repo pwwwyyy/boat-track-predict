@@ -1,5 +1,5 @@
 <div align="center">
-<h2>1D-UNet for boat tack predicting</h2>
+<h2>1D-UNet for boat track predicting</h2>
 </div>
 
 ## 📝 TODO
