@@ -2,6 +2,9 @@ import configparser
 import torch
 from datetime import datetime
 
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+
 class Config:
     def __init__(self, config_path):
         parser = configparser.ConfigParser()
@@ -22,7 +25,7 @@ class Config:
         self.num_workers = int(parser.get('training', 'num_workers'))
         self.num_epochs = int(parser.get('training', 'num_epochs'))
         self.lr = float(parser.get('training', 'lr'))
-        self.save_dir = parser.get('training', 'save_dir') + '/' + str(datetime.now())
+        self.save_dir = parser.get('training', 'save_dir') + '/' + f"{timestamp}"
         self.dtype_str = parser.get('training', 'dtype')
 
         # model
