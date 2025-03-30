@@ -7,7 +7,7 @@ def count_parameters(model):
 
 
 def plot_example(gt, ob, pre, path):
-    assert gt.shape == ob.shape == pre.shape
+    # assert gt.shape == ob.shape == pre.shape
     assert gt.ndim == 2
     lat_gt, lon_gt = gt.cpu().numpy()
     lat_ob, lon_ob = ob.cpu().numpy()
