@@ -18,6 +18,7 @@ class Config:
         self.gt_path = parser.get('training', 'gt_path')
         self.ob_path = parser.get('training', 'ob_path')
         self.batch_size = int(parser.get('training', 'batch_size'))
+        self.type = (parser.get('training', 'type'))
 
         self.gpu = parser.get('training', 'gpu')
         self.window_length = int(parser.get('training', 'window_length'))
