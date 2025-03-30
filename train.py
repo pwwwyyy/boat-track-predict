@@ -15,6 +15,8 @@ class Trainer:
 
         self.checkpoint_path = os.path.join(self.config.save_dir, f'model_state')
         os.makedirs(self.checkpoint_path, exist_ok=True)
+        if self.config.type == 'predict':
+            self.pre_length = self.config.window_length
 
     def train(self, dataloader, train_log, global_step):
         self.model.train()
@@ -23,20 +25,27 @@ class Trainer:
         for idx, (gt, ob) in enumerate(dataloader):
             gt = gt.cuda()
             ob = ob.cuda()
-            if self.config.window_type == 'sliding':
-                gt, ob = self.random_window(gt, ob)
-            elif self.config.window_type == 'fix':
-                widx = random.choice([0, 1]) * self.config.window_length
-                gt, ob = self.fix_window(gt, ob, window_idx=widx)
-            else:
-                raise NotImplementedError
+            if self.config.type == 'filter':
+                if self.config.window_type == 'sliding':
+                    gt, ob = self.random_window(gt, ob)
+                elif self.config.window_type == 'fix':
+                    widx = random.choice([0, 1]) * self.config.window_length
+                    gt, ob = self.fix_window(gt, ob, window_idx=widx)
+                else:
+                    raise NotImplementedError
+            elif self.config.type == 'predict':
+                gt, ob = self.pre_window(gt, ob, window_idx=0)
             data_train = torch.cat((gt, ob), dim=0)
             normalizer = MinMaxNormalizer(data_train)
             ob = normalizer.normalize(ob)
+            if self.config.type == 'predict':
+                gt = gt[:, :, self.config.window_length:self.config.window_length+self.pre_length]
+                ob = ob[:, :, 0:self.config.window_length]
+
             predict_track = self.model(ob)
             predict_track = normalizer.denormalize(predict_track)
-            loss = self.loss_fn(predict_track, gt)
 
+            loss = self.loss_fn(predict_track, gt)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -59,20 +68,31 @@ class Trainer:
             for idx, (gt, ob) in enumerate(dataloader):
                 gt = gt.cuda()
                 ob = ob.cuda()
-                if self.config.window_type == 'sliding':
-                    gt, ob = self.random_window(gt, ob)
-                elif self.config.window_type == 'fix':
-                    widx = random.choice([0, 1]) * self.config.window_length
-                    gt, ob = self.fix_window(gt, ob, window_idx=widx)
+                if self.config.type == 'filter':
+                    if self.config.window_type == 'sliding':
+                        gt, ob = self.random_window(gt, ob)
+                    elif self.config.window_type == 'fix':
+                        widx = random.choice([0, 1]) * self.config.window_length
+                        gt, ob = self.fix_window(gt, ob, window_idx=widx)
+                    else:
+                        raise NotImplementedError
+                elif self.config.type == 'predict':
+                    gt, ob = self.pre_window(gt, ob, window_idx=0)
+
                 else:
+                    print(self.config.type)
                     raise NotImplementedError
                 data_val = torch.cat((gt, ob), dim=0)
                 normalizer = MinMaxNormalizer(data_val)
                 ob = normalizer.normalize(ob)
+                gt_plot = gt
+                if self.config.type == 'predict':
+                    gt = gt[:, :, self.config.window_length:self.config.window_length + self.pre_length]
+                    ob = ob[:, :, 0:self.config.window_length]
+
 
                 predict_track = self.model(ob)
                 predict_track = normalizer.denormalize(predict_track)
-
                 val_loss = self.loss_fn(predict_track, gt)
                 total_loss.append(val_loss)
 
@@ -83,7 +103,9 @@ class Trainer:
                         img_path = os.path.join(img_dir, f'val_{epoch}.png')
                         ob_plt = normalizer.denormalize(ob)
                         sample_idx = random.randint(a=0, b=gt.shape[0]-1)
-                        plot_example(gt[sample_idx,:,:], ob_plt[sample_idx,:,:], predict_track[sample_idx,:,:], img_path)
+                        plot_example(gt_plot[sample_idx, :, :], ob_plt[sample_idx, :, :], predict_track[sample_idx, :, :], img_path)
+
+
 
 
         stacked_tensor = torch.stack(total_loss, dim=0)
@@ -110,6 +132,13 @@ class Trainer:
         assert gt.shape[1] == ob.shape[1] == self.config.in_channel
         gt_cut = gt[:, :, window_idx:window_idx + self.config.window_length]
         ob_cut = ob[:, :, window_idx:window_idx + self.config.window_length]
+        return gt_cut, ob_cut
+
+    def pre_window(self, gt, ob, window_idx):
+        assert gt.shape[0] == ob.shape[0] == self.config.batch_size
+        assert gt.shape[1] == ob.shape[1] == self.config.in_channel
+        gt_cut = gt[:, :, window_idx:window_idx + self.config.window_length+self.pre_length]
+        ob_cut = ob[:, :, window_idx:window_idx + self.config.window_length+self.pre_length]
         return gt_cut, ob_cut
 
     def save_ckpt(self, epoch):
